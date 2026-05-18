@@ -50,7 +50,8 @@ export class BookingService {
     const total = bookings.length;
     const totalPages = Math.ceil(total / limit);
 
-    const offset = page * limit;
+    // page is 1-based from the client
+    const offset = (page - 1) * limit;
     const paginatedBookings = bookings.slice(offset, offset + limit);
 
     return {
@@ -65,8 +66,15 @@ export class BookingService {
   /**
    * Create a new booking.
    * Checks for overlapping bookings with the same sitter.
+   *
+   * This method is intentionally synchronous so that the overlap check and the
+   * store write happen in the same event-loop tick. With an `await` between the
+   * check and the write, two concurrent requests can both pass the overlap check
+   * before either writes, causing a double-booking race condition.
+   * In a real database you would use a serializable transaction or a UNIQUE
+   * constraint on (sitterId, scheduledDate, startTime) instead.
    */
-  public async createBooking(params: CreateBookingParams): Promise<Booking> {
+  public createBooking(params: CreateBookingParams): Booking {
     const { tenantId, petId, sitterId, scheduledDate, startTime, endTime, notes, createdBy } = params;
 
     // Check for overlapping bookings with the same sitter
@@ -87,9 +95,7 @@ export class BookingService {
       throw new Error('Sitter has an overlapping booking for this time slot');
     }
 
-    // Simulate async operation (like a database write)
-    await new Promise(resolve => setTimeout(resolve, 10));
-
+    // Write immediately — no async gap between check and write
     const now = new Date().toISOString();
     const booking: Booking = {
       id: `booking_${uuid().slice(0, 8)}`,

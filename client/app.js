@@ -19,6 +19,24 @@ let filters = {
 };
 
 // ============================================
+// Security helpers
+// ============================================
+
+/**
+ * Escape user-controlled strings before inserting them into innerHTML.
+ * Without this, a booking note containing <script> or <img onerror=...>
+ * would execute arbitrary JavaScript in every user's browser (stored XSS).
+ */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ============================================
 // Initialization
 // ============================================
 
@@ -50,7 +68,6 @@ function initFilters() {
   const refreshBtn = document.getElementById('refresh-btn');
 
   dateFilter.addEventListener('change', (e) => {
-    // Reassigns filters to a new object — the polling closure still has the old one
     filters = { ...filters, date: e.target.value, page: 1 };
     fetchBookings(filters);
   });
@@ -119,18 +136,18 @@ function renderBookings(bookings, container) {
     return `
       <div class="booking-card">
         <div class="booking-info">
-          <h3>Booking ${booking.id.replace('booking_', '#')}</h3>
+          <h3>Booking ${escapeHtml(booking.id.replace('booking_', '#'))}</h3>
           <div class="booking-meta">
-            <span>Pet: ${booking.petId}</span>
-            <span>Sitter: ${booking.sitterId}</span>
-            <span>Date: ${date}</span>
-            <span>Time: ${booking.startTime} - ${booking.endTime}</span>
+            <span>Pet: ${escapeHtml(booking.petId)}</span>
+            <span>Sitter: ${escapeHtml(booking.sitterId)}</span>
+            <span>Date: ${escapeHtml(date)}</span>
+            <span>Time: ${escapeHtml(booking.startTime)} - ${escapeHtml(booking.endTime)}</span>
           </div>
-          <div class="booking-notes">${booking.notes}</div>
+          <div class="booking-notes">${escapeHtml(booking.notes)}</div>
         </div>
         <div class="booking-actions">
-          <span class="status-badge status-${booking.status}">
-            ${booking.status.replace('_', ' ')}
+          <span class="status-badge status-${escapeHtml(booking.status)}">
+            ${escapeHtml(booking.status.replace('_', ' '))}
           </span>
           ${statusActions}
         </div>
